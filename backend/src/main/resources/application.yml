@@ -1,0 +1,31 @@
+server:
+  port: 8080
+  servlet:
+    context-path: /api
+
+spring:
+  application:
+    name: fullstack-basic
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: jdbc:mysql://${DB_HOST:localhost}:${DB_PORT:3306}/${DB_NAME:fullstack_basic}?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true
+    username: ${DB_USERNAME:root}
+    password: ${DB_PASSWORD:root}
+
+mybatis-plus:
+  configuration:
+    log-impl: org.apache.ibatis.logging.nologging.NoLoggingImpl
+  logging:
+    level:
+      com.example.fullstack: info
+
+logging:
+  level:
+    com.example.fullstack: debug
+
+app:
+  jwt:
+    secret: ${JWT_SECRET:ReplaceThisJwtSecretWithAtLeast32Chars}
+    expire-hours: 24
+  captcha:
+    expire-minutes: 5
