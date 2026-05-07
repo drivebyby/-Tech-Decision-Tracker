@@ -16,6 +16,7 @@ import com.example.fullstack.service.AuthService;
 import com.example.fullstack.service.UserService;
 import com.example.fullstack.util.JwtTokenUtil;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
@@ -26,6 +27,7 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class AuthServiceImpl implements AuthService {
@@ -78,7 +80,7 @@ public class AuthServiceImpl implements AuthService {
         user.setCreatedAt(LocalDateTime.now());
         user.setUpdatedAt(LocalDateTime.now());
         userService.save(user);
-
+        log.info("用户注册成功: username={}, email={}", user.getUsername(), user.getEmail());
         return buildLoginResponse(user);
     }
 
@@ -89,12 +91,14 @@ public class AuthServiceImpl implements AuthService {
                 .eq(User::getUsername, request.getUsername())
                 .last("limit 1"));
         if (user == null || !passwordEncoder.matches(request.getPassword(), user.getPassword())) {
+            log.warn("登录失败: username={}", request.getUsername());
             throw new BusinessException(400, "用户名或密码错误");
         }
         if (user.getStatus() == null || user.getStatus() != 1) {
             throw new BusinessException(403, "账号已被禁用");
         }
 
+        log.info("用户登录成功: username={}", user.getUsername());
         return buildLoginResponse(user);
     }
 

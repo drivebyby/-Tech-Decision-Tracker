@@ -20,10 +20,14 @@ mybatis-plus:
       com.example.fullstack: info
 
 logging:
+  config: classpath:logback-spring.xml
   level:
     com.example.fullstack: debug
 
 app:
+  log:
+    path: D:/code/codex/Tech Decision Tracker/backend/logs
+
   jwt:
     secret: ${JWT_SECRET:ReplaceThisJwtSecretWithAtLeast32Chars}
     expire-hours: 24

@@ -22,6 +22,7 @@ import com.example.fullstack.mapper.DecisionRelationMapper;
 import com.example.fullstack.mapper.UserMapper;
 import com.example.fullstack.service.DecisionService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -33,6 +34,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class DecisionServiceImpl implements DecisionService {
@@ -48,7 +50,9 @@ public class DecisionServiceImpl implements DecisionService {
 
     @Override
     public IPage<DecisionListItem> pageDecisions(long page, long size, String category, String status) {
-        LambdaQueryWrapper<Decision> wrapper = Wrappers.<Decision>lambdaQuery();
+        Long currentUserId = AuthContext.getCurrentUserId();
+        LambdaQueryWrapper<Decision> wrapper = Wrappers.<Decision>lambdaQuery()
+                .eq(currentUserId != null, Decision::getCreatedBy, currentUserId);
         if (StringUtils.hasText(category)) {
             wrapper.eq(Decision::getCategory, category);
         }
@@ -80,6 +84,7 @@ public class DecisionServiceImpl implements DecisionService {
     public DecisionDetailResponse getDetail(Long id) {
         Decision decision = decisionMapper.selectById(id);
         if (decision == null) {
+            log.warn("决策不存在: id={}", id);
             throw new BusinessException(404, "决策不存在");
         }
 
@@ -133,6 +138,8 @@ public class DecisionServiceImpl implements DecisionService {
         decision.setCreatedAt(LocalDateTime.now());
         decision.setUpdatedAt(LocalDateTime.now());
         decisionMapper.insert(decision);
+        log.info("创建决策: id={}, title={}, category={}, userId={}",
+                decision.getId(), decision.getTitle(), decision.getCategory(), decision.getCreatedBy());
         return getDetail(decision.getId());
     }
 
@@ -141,6 +148,7 @@ public class DecisionServiceImpl implements DecisionService {
     public DecisionDetailResponse update(Long id, DecisionUpdateRequest request) {
         Decision decision = decisionMapper.selectById(id);
         if (decision == null) {
+            log.warn("更新决策失败，决策不存在: id={}", id);
             throw new BusinessException(404, "决策不存在");
         }
         decision.setTitle(request.getTitle());
@@ -155,6 +163,7 @@ public class DecisionServiceImpl implements DecisionService {
         }
         decision.setUpdatedAt(LocalDateTime.now());
         decisionMapper.updateById(decision);
+        log.info("更新决策: id={}, title={}, status={}", decision.getId(), decision.getTitle(), decision.getStatus());
         return getDetail(id);
     }
 
@@ -163,6 +172,7 @@ public class DecisionServiceImpl implements DecisionService {
     public DecisionDetailResponse supersede(SupersedeRequest request) {
         Decision parent = decisionMapper.selectById(request.getParentId());
         if (parent == null) {
+            log.warn("推翻决策失败，被推翻决策不存在: parentId={}", request.getParentId());
             throw new BusinessException(404, "被推翻的决策不存在");
         }
         if ("superseded".equals(parent.getStatus())) {
@@ -193,13 +203,16 @@ public class DecisionServiceImpl implements DecisionService {
         relation.setRelationType("supersedes");
         relation.setCreatedAt(LocalDateTime.now());
         relationMapper.insert(relation);
-
+        log.info("推翻决策: parentId={}, parentTitle={}, childId={}, childTitle={}",
+                parent.getId(), parent.getTitle(), child.getId(), child.getTitle());
         return getDetail(child.getId());
     }
 
     @Override
     public List<DecisionListItem> getTimeline(String category) {
+        Long currentUserId = AuthContext.getCurrentUserId();
         LambdaQueryWrapper<Decision> wrapper = Wrappers.<Decision>lambdaQuery()
+                .eq(currentUserId != null, Decision::getCreatedBy, currentUserId)
                 .orderByAsc(Decision::getCreatedAt);
         if (StringUtils.hasText(category)) {
             wrapper.eq(Decision::getCategory, category);
@@ -225,7 +238,9 @@ public class DecisionServiceImpl implements DecisionService {
 
     @Override
     public Map<String, Object> getGraph() {
+        Long currentUserId = AuthContext.getCurrentUserId();
         List<Decision> decisions = decisionMapper.selectList(Wrappers.<Decision>lambdaQuery()
+                .eq(currentUserId != null, Decision::getCreatedBy, currentUserId)
                 .orderByAsc(Decision::getCreatedAt));
         List<DecisionRelation> relations = relationMapper.selectList(null);
 
@@ -268,7 +283,8 @@ public class DecisionServiceImpl implements DecisionService {
         commit.setRepoUrl(request.getRepoUrl());
         commit.setCreatedAt(LocalDateTime.now());
         commitMapper.insert(commit);
-
+        log.info("关联Commit: decisionId={}, commitHash={}, filePath={}",
+                decisionId, request.getCommitHash(), request.getFilePath());
         return new DecisionDetailResponse.CommitInfo(
                 commit.getId(), commit.getCommitHash(), commit.getCommitMessage(),
                 commit.getFilePath(), commit.getRepoUrl());
